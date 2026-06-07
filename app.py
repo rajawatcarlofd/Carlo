@@ -8,7 +8,6 @@ import threading
 import json
 from datetime import datetime
 import logging
-from config import API_CONFIG
 
 app = Flask(__name__)
 app.secret_key = 'multi-telegram-broadcaster-secret-key-2024'
@@ -343,6 +342,14 @@ def get_api_status():
         return jsonify({'configured': False})
     except Exception as e:
         return jsonify({'configured': False, 'error': str(e)})
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({'error': 'Not found'}), 404
+
+@app.errorhandler(500)
+def server_error(error):
+    return jsonify({'error': 'Server error'}), 500
 
 if __name__ == '__main__':
     db.init_db()
