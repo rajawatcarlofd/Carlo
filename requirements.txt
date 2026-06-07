@@ -1,0 +1,14 @@
+Flask==3.0.0
+Telethon==1.36.0
+aiofiles==23.2.1
+python-dotenv==1.0.0
+Werkzeug==3.0.1
+click==8.1.7
+colorama==0.4.6
+pyaes==1.6.1
+pyrfc3339==1.1
+pytz==2023.3.post1
+rsa==4.9
+Requests==2.31.0
+six==1.16.0
+update-checker==0.18.0
