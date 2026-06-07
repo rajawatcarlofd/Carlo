@@ -1,13 +1,14 @@
 import os
 import sys
 import asyncio
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, send_file
 from database import Database
 from broadcaster import TelegramBroadcaster
 import threading
 import json
 from datetime import datetime
 import logging
+from config import API_CONFIG
 
 app = Flask(__name__)
 app.secret_key = 'multi-telegram-broadcaster-secret-key-2024'
@@ -310,6 +311,38 @@ def reconnect_account():
         logger.error(f"Error reconnecting account: {str(e)}")
         add_log('error', f"Reconnection failed: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/upload-api-hash', methods=['POST'])
+def upload_api_hash():
+    try:
+        data = request.json
+        api_id = data.get('api_id')
+        api_hash = data.get('api_hash')
+        
+        if not api_id or not api_hash:
+            return jsonify({'error': 'API ID and API HASH required'}), 400
+        
+        if db.save_api_credentials(api_id, api_hash):
+            broadcaster.update_credentials(api_id, api_hash)
+            add_log('success', 'API credentials updated successfully')
+            return jsonify({'success': True, 'message': 'API credentials saved'})
+        else:
+            return jsonify({'error': 'Failed to save credentials'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error uploading API hash: {str(e)}")
+        add_log('error', f"API credential upload failed: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/get-api-status')
+def get_api_status():
+    try:
+        credentials = db.get_api_credentials()
+        if credentials:
+            return jsonify({'configured': True, 'api_id': credentials[0]})
+        return jsonify({'configured': False})
+    except Exception as e:
+        return jsonify({'configured': False, 'error': str(e)})
 
 if __name__ == '__main__':
     db.init_db()
