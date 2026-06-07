@@ -1,32 +1,157 @@
+// Global variables
 let currentPhone = null;
 let allGroups = [];
-let selectedGroupsMap = new Map();
+let selectedGroups = new Set();
+let currentPendingPhone = null;
 
-async function updateStats() {
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadStats();
+    loadAccounts();
+    loadLogs();
+    setupEventListeners();
+    
+    // Refresh stats every 5 seconds
+    setInterval(loadStats, 5000);
+    // Refresh logs every 3 seconds
+    setInterval(loadLogs, 3000);
+});
+
+function setupEventListeners() {
+    // API Form
+    document.getElementById('apiForm').addEventListener('submit', uploadApiCredentials);
+    
+    // Account Form
+    document.getElementById('addAccountForm').addEventListener('submit', handleAddAccount);
+    document.getElementById('verifyOtpBtn').addEventListener('click', handleVerifyOtp);
+    
+    // Groups
+    document.getElementById('accountSelect').addEventListener('change', loadAccountGroups);
+    document.getElementById('refreshGroupsBtn').addEventListener('click', refreshGroups);
+    document.getElementById('selectAllBtn').addEventListener('click', selectAllGroups);
+    document.getElementById('saveGroupsBtn').addEventListener('click', saveSelectedGroups);
+    document.getElementById('searchGroups').addEventListener('input', filterGroups);
+    
+    // Broadcast
+    document.getElementById('startBroadcastBtn').addEventListener('click', startBroadcast);
+    document.getElementById('stopBroadcastBtn').addEventListener('click', stopBroadcast);
+    
+    // Logs
+    document.getElementById('exportLogsBtn').addEventListener('click', exportLogs);
+    document.getElementById('clearLogsBtn').addEventListener('click', clearLogs);
+}
+
+// API Credentials Upload
+async function uploadApiCredentials(e) {
+    e.preventDefault();
+    const apiId = document.getElementById('apiId').value;
+    const apiHash = document.getElementById('apiHash').value;
+    
+    try {
+        const response = await fetch('/api/upload-api-hash', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({api_id: apiId, api_hash: apiHash})
+        });
+        
+        const data = await response.json();
+        const statusEl = document.getElementById('apiStatus');
+        
+        if (data.success) {
+            statusEl.innerHTML = '<span class="badge bg-success">✓ Credentials Saved</span>';
+            setTimeout(() => statusEl.innerHTML = '', 3000);
+        } else {
+            statusEl.innerHTML = '<span class="badge bg-danger">✗ ' + data.error + '</span>';
+        }
+    } catch (error) {
+        document.getElementById('apiStatus').innerHTML = '<span class="badge bg-danger">✗ Error: ' + error.message + '</span>';
+    }
+}
+
+// Load Statistics
+async function loadStats() {
     try {
         const response = await fetch('/api/stats');
         const data = await response.json();
         
-        document.getElementById('totalAccounts').textContent = data.total_accounts;
-        document.getElementById('totalGroups').textContent = data.total_groups;
-        document.getElementById('selectedGroups').textContent = data.selected_groups;
-        document.getElementById('messagesSent').textContent = data.messages_sent;
-        document.getElementById('failedCount').textContent = data.failed_count;
+        document.getElementById('total-accounts').textContent = data.total_accounts;
+        document.getElementById('total-groups').textContent = data.total_groups;
+        document.getElementById('messages-sent').textContent = data.messages_sent;
+        document.getElementById('failed-count').textContent = data.failed_count;
         
-        const statusBadge = document.getElementById('statusBadge');
+        const statusBadge = document.getElementById('status-badge');
         if (data.broadcasting) {
-            statusBadge.textContent = 'Broadcasting';
-            statusBadge.style.backgroundColor = '#28a745';
+            statusBadge.textContent = '🔴 Broadcasting...';
+            statusBadge.style.color = '#dc3545';
         } else {
-            statusBadge.textContent = 'Idle';
-            statusBadge.style.backgroundColor = '#dc3545';
+            statusBadge.textContent = '🟢 Status: Ready';
+            statusBadge.style.color = '#28a745';
         }
     } catch (error) {
-        console.error('Error updating stats:', error);
+        console.error('Error loading stats:', error);
     }
 }
 
-async function updateAccountsList() {
+// Add Account
+async function handleAddAccount(e) {
+    e.preventDefault();
+    const phone = document.getElementById('phoneNumber').value;
+    
+    try {
+        const response = await fetch('/api/add-account', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({phone: phone})
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentPendingPhone = phone;
+            document.getElementById('otpModal').style.display = 'block';
+            document.getElementById('phoneNumber').value = '';
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// Verify OTP
+async function handleVerifyOtp() {
+    const otp = document.getElementById('otpCode').value;
+    
+    if (!otp || !currentPendingPhone) {
+        alert('Please enter OTP code');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/verify-otp', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({phone: currentPendingPhone, otp: otp})
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('otpModal').style.display = 'none';
+            document.getElementById('otpCode').value = '';
+            currentPendingPhone = null;
+            loadAccounts();
+            alert('Account added successfully!');
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// Load Accounts
+async function loadAccounts() {
     try {
         const response = await fetch('/api/accounts');
         const accounts = await response.json();
@@ -35,325 +160,227 @@ async function updateAccountsList() {
         const accountSelect = document.getElementById('accountSelect');
         
         accountsList.innerHTML = '';
-        accountSelect.innerHTML = '<option value="">Choose an account...</option>';
-        
-        if (accounts.length === 0) {
-            accountsList.innerHTML = '<p class="text-muted">No accounts connected</p>';
-            return;
-        }
+        accountSelect.innerHTML = '<option value="">Select Account</option>';
         
         accounts.forEach(account => {
-            const statusColor = account.status === 'online' ? 'success' : 'danger';
-            const statusText = account.status.toUpperCase();
-            
-            const accountItem = document.createElement('div');
-            accountItem.className = 'account-item';
-            accountItem.innerHTML = `
-                <div class="account-info">
-                    <h6>${account.phone}</h6>
-                    <small>Status: <span class="badge bg-${statusColor}">${statusText}</span> | Groups: ${account.groups_loaded}</small>
-                </div>
-                <div class="account-actions">
-                    <button class="btn btn-sm btn-info" onclick="loadGroupsForAccount('${account.phone}')">Load Groups</button>
-                    <button class="btn btn-sm btn-warning" onclick="reconnectAccount('${account.phone}')">Reconnect</button>
-                    <button class="btn btn-sm btn-danger" onclick="removeAccount('${account.phone}')">Remove</button>
+            // Add to accounts list
+            const card = document.createElement('div');
+            card.className = 'col-md-6 mb-3';
+            card.innerHTML = `
+                <div class="account-card">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6>${account.phone}</h6>
+                            <small>Groups: ${account.groups_loaded}</small>
+                            <br>
+                            <span class="badge ${account.status === 'online' ? 'badge-online' : 'badge-offline'}">${account.status.toUpperCase()}</span>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-warning" onclick="reconnectAccount('${account.phone}')">Reconnect</button>
+                            <button class="btn btn-sm btn-danger" onclick="removeAccount('${account.phone}')">Remove</button>
+                        </div>
+                    </div>
                 </div>
             `;
-            accountsList.appendChild(accountItem);
+            accountsList.appendChild(card);
             
+            // Add to select dropdown
             const option = document.createElement('option');
             option.value = account.phone;
-            option.textContent = account.phone + (account.status === 'online' ? ' (Online)' : ' (Offline)');
+            option.textContent = account.phone;
             accountSelect.appendChild(option);
         });
     } catch (error) {
-        console.error('Error updating accounts list:', error);
+        console.error('Error loading accounts:', error);
     }
 }
 
-async function updateLogs() {
-    try {
-        const response = await fetch('/api/logs');
-        const logs = await response.json();
-        
-        const logsList = document.getElementById('logsList');
-        
-        if (logs.length === 0) {
-            logsList.innerHTML = '<p class="text-muted">No logs yet</p>';
-            return;
-        }
-        
-        logsList.innerHTML = '';
-        logs.forEach(log => {
-            const logEntry = document.createElement('div');
-            logEntry.className = `log-entry ${log[2].toLowerCase()}`;
-            logEntry.innerHTML = `<strong>[${log[1]}]</strong> [${log[2].toUpperCase()}] ${log[3]}`;
-            logsList.appendChild(logEntry);
-        });
-        
-        logsList.scrollTop = logsList.scrollHeight;
-    } catch (error) {
-        console.error('Error updating logs:', error);
-    }
-}
-
-async function addAccount() {
-    const phone = document.getElementById('phoneInput').value.trim();
-    
-    if (!phone) {
-        alert('Please enter a phone number');
-        return;
-    }
-    
-    try {
-        const response = await fetch('/api/add-account', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: phone })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            currentPhone = phone;
-            showOtpModal(phone);
-        } else {
-            alert('Error: ' + data.error);
-        }
-    } catch (error) {
-        console.error('Error adding account:', error);
-        alert('Error adding account');
-    }
-}
-
-function showOtpModal(phone) {
-    document.getElementById('otpPhone').textContent = `Enter OTP sent to ${phone}`;
-    document.getElementById('otpInput').value = '';
-    document.getElementById('otpModal').style.display = 'block';
-}
-
-function closeOtpModal() {
-    document.getElementById('otpModal').style.display = 'none';
-    currentPhone = null;
-}
-
-async function submitOtp() {
-    const otp = document.getElementById('otpInput').value.trim();
-    
-    if (!otp || !currentPhone) {
-        alert('Please enter OTP');
-        return;
-    }
-    
-    try {
-        const response = await fetch('/api/verify-otp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: currentPhone, otp: otp })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            alert('Account added successfully!');
-            document.getElementById('phoneInput').value = '';
-            closeOtpModal();
-            updateAccountsList();
-            updateStats();
-        } else {
-            alert('Error: ' + data.error);
-        }
-    } catch (error) {
-        console.error('Error verifying OTP:', error);
-        alert('Error verifying OTP');
-    }
-}
-
+// Remove Account
 async function removeAccount(phone) {
-    if (!confirm(`Are you sure you want to remove account ${phone}?`)) {
-        return;
-    }
+    if (!confirm('Are you sure you want to remove this account?')) return;
     
     try {
         const response = await fetch('/api/remove-account', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: phone })
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({phone: phone})
         });
         
         const data = await response.json();
-        
         if (data.success) {
-            updateAccountsList();
-            updateStats();
+            loadAccounts();
+            alert('Account removed successfully');
         } else {
             alert('Error: ' + data.error);
         }
     } catch (error) {
-        console.error('Error removing account:', error);
+        alert('Error: ' + error.message);
     }
 }
 
+// Reconnect Account
 async function reconnectAccount(phone) {
     try {
         const response = await fetch('/api/reconnect-account', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: phone })
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({phone: phone})
         });
         
         const data = await response.json();
-        
         if (data.success) {
+            loadAccounts();
             alert('Account reconnected successfully');
-            updateAccountsList();
         } else {
             alert('Error: ' + data.error);
         }
     } catch (error) {
-        console.error('Error reconnecting account:', error);
+        alert('Error: ' + error.message);
     }
 }
 
-async function loadGroupsForAccount(phone) {
-    try {
-        const response = await fetch('/api/load-groups', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: phone })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            alert(`Loaded ${data.count} groups for ${phone}`);
-            updateAccountsList();
-            updateStats();
-        } else {
-            alert('Error: ' + data.error);
-        }
-    } catch (error) {
-        console.error('Error loading groups:', error);
-    }
-}
-
-async function loadGroups() {
+// Load Account Groups
+async function loadAccountGroups() {
     const phone = document.getElementById('accountSelect').value;
-    
     if (!phone) {
-        document.getElementById('groupsList').innerHTML = '<p class="text-muted">Select an account to load groups</p>';
+        document.getElementById('groupsList').innerHTML = '';
         return;
     }
+    
+    currentPhone = phone;
     
     try {
         const response = await fetch(`/api/groups/${phone}`);
-        const groups = await response.json();
-        
-        allGroups = groups;
-        displayGroups(groups);
+        allGroups = await response.json();
+        displayGroups(allGroups);
     } catch (error) {
         console.error('Error loading groups:', error);
     }
 }
 
+// Refresh Groups
+async function refreshGroups() {
+    if (!currentPhone) {
+        alert('Please select an account first');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/load-groups', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({phone: currentPhone})
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            allGroups = data.groups;
+            displayGroups(allGroups);
+            alert(`Loaded ${data.count} groups`);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// Display Groups
 function displayGroups(groups) {
     const groupsList = document.getElementById('groupsList');
+    groupsList.innerHTML = '';
     
     if (groups.length === 0) {
-        groupsList.innerHTML = '<p class="text-muted">No groups found for this account</p>';
+        groupsList.innerHTML = '<p class="text-muted">No groups found</p>';
         return;
     }
     
-    groupsList.innerHTML = '';
-    groups.forEach(group => {
-        const isSelected = selectedGroupsMap.has(`${group.id}`);
-        const groupItem = document.createElement('div');
-        groupItem.className = 'list-group-item';
-        groupItem.style.cursor = 'pointer';
-        groupItem.innerHTML = `
-            <div style="display: flex; align-items: center;">
-                <input type="checkbox" class="form-check-input group-checkbox" ${isSelected ? 'checked' : ''} onchange="toggleGroupSelection('${group.id}', '${group.name}')">
-                <span>${group.name}</span>
-            </div>
+    groups.forEach((group, index) => {
+        const isSelected = selectedGroups.has(group.id);
+        const item = document.createElement('div');
+        item.className = 'group-item';
+        item.innerHTML = `
+            <input type="checkbox" id="group_${index}" ${isSelected ? 'checked' : ''} 
+                onchange="toggleGroup('${group.id}', this.checked)">
+            <label for="group_${index}" style="cursor: pointer; margin-bottom: 0;">
+                <strong>${group.name}</strong>
+                <small class="text-muted">(${group.type})</small>
+            </label>
         `;
-        groupsList.appendChild(groupItem);
+        groupsList.appendChild(item);
     });
 }
 
-function toggleGroupSelection(groupId, groupName) {
-    const phone = document.getElementById('accountSelect').value;
-    const key = `${groupId}`;
-    
-    if (selectedGroupsMap.has(key)) {
-        selectedGroupsMap.delete(key);
+// Toggle Group Selection
+function toggleGroup(groupId, checked) {
+    if (checked) {
+        selectedGroups.add(groupId);
     } else {
-        selectedGroupsMap.set(key, { phone: phone, id: groupId, name: groupName });
+        selectedGroups.delete(groupId);
     }
 }
 
-function filterGroups() {
-    const searchTerm = document.getElementById('groupSearch').value.toLowerCase();
-    const filtered = allGroups.filter(group => group.name.toLowerCase().includes(searchTerm));
-    displayGroups(filtered);
-}
-
+// Select All Groups
 function selectAllGroups() {
-    const phone = document.getElementById('accountSelect').value;
-    if (!phone) {
-        alert('Please select an account');
-        return;
-    }
-    
-    allGroups.forEach(group => {
-        selectedGroupsMap.set(`${group.id}`, { phone: phone, id: group.id, name: group.name });
-    });
+    allGroups.forEach(group => selectedGroups.add(group.id));
     displayGroups(allGroups);
 }
 
+// Filter Groups
+function filterGroups() {
+    const searchTerm = document.getElementById('searchGroups').value.toLowerCase();
+    const filtered = allGroups.filter(g => g.name.toLowerCase().includes(searchTerm));
+    displayGroups(filtered);
+}
+
+// Save Selected Groups
 async function saveSelectedGroups() {
-    if (selectedGroupsMap.size === 0) {
+    if (selectedGroups.size === 0) {
         alert('Please select at least one group');
         return;
     }
     
-    const groups = Array.from(selectedGroupsMap.values());
+    const groups = allGroups
+        .filter(g => selectedGroups.has(g.id))
+        .map(g => ({...g, phone: currentPhone}));
     
     try {
         const response = await fetch('/api/save-selected-groups', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ groups: groups })
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({groups: groups})
         });
         
         const data = await response.json();
-        
         if (data.success) {
-            alert(data.message);
-            updateStats();
+            alert(`Saved ${groups.length} groups`);
+            loadStats();
         } else {
             alert('Error: ' + data.error);
         }
     } catch (error) {
-        console.error('Error saving selected groups:', error);
+        alert('Error: ' + error.message);
     }
 }
 
+// Start Broadcast
 async function startBroadcast() {
-    const message = document.getElementById('messageBox').value.trim();
-    const delay = parseInt(document.getElementById('delayInput').value) || 0;
-    const randomDelay = document.getElementById('randomDelayCheck').checked;
-    const autoRepeat = document.getElementById('autoRepeatCheck').checked;
-    const repeatInterval = parseInt(document.getElementById('repeatInterval').value) || 300;
+    const message = document.getElementById('message').value;
     
     if (!message) {
         alert('Please enter a message');
         return;
     }
     
+    const delay = parseInt(document.getElementById('delay').value) || 0;
+    const randomDelay = document.getElementById('randomDelay').checked;
+    const autoRepeat = document.getElementById('autoRepeat').checked;
+    const repeatInterval = parseInt(document.getElementById('repeatInterval').value) || 300;
+    
     try {
         const response = await fetch('/api/start-broadcast', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 message: message,
                 delay: delay,
@@ -364,77 +391,90 @@ async function startBroadcast() {
         });
         
         const data = await response.json();
-        
         if (data.success) {
+            document.getElementById('startBroadcastBtn').style.display = 'none';
+            document.getElementById('stopBroadcastBtn').style.display = 'inline-block';
             alert('Broadcasting started');
-            updateStats();
         } else {
             alert('Error: ' + data.error);
         }
     } catch (error) {
-        console.error('Error starting broadcast:', error);
+        alert('Error: ' + error.message);
     }
 }
 
+// Stop Broadcast
 async function stopBroadcast() {
     try {
         const response = await fetch('/api/stop-broadcast', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: {'Content-Type': 'application/json'}
         });
         
         const data = await response.json();
-        
         if (data.success) {
+            document.getElementById('startBroadcastBtn').style.display = 'inline-block';
+            document.getElementById('stopBroadcastBtn').style.display = 'none';
             alert('Broadcasting stopped');
-            updateStats();
+        } else {
+            alert('Error: ' + data.error);
         }
     } catch (error) {
-        console.error('Error stopping broadcast:', error);
+        alert('Error: ' + error.message);
     }
 }
 
-async function exportLogs() {
+// Load Logs
+async function loadLogs() {
     try {
-        const response = await fetch('/api/export-logs');
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `logs_${new Date().getTime()}.txt`;
-        a.click();
+        const response = await fetch('/api/logs');
+        const logs = await response.json();
+        
+        const logsList = document.getElementById('logsList');
+        logsList.innerHTML = '';
+        
+        if (logs.length === 0) {
+            logsList.innerHTML = '<p class="text-muted">No logs yet</p>';
+            return;
+        }
+        
+        logs.forEach(log => {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${log[2].toLowerCase()}`;
+            entry.innerHTML = `
+                <strong>[${log[2].toUpperCase()}]</strong> ${log[1]}<br>
+                <small>${log[3]}</small>
+            `;
+            logsList.appendChild(entry);
+        });
     } catch (error) {
-        console.error('Error exporting logs:', error);
+        console.error('Error loading logs:', error);
     }
 }
 
+// Export Logs
+function exportLogs() {
+    window.location.href = '/api/export-logs';
+}
+
+// Clear Logs
 async function clearLogs() {
-    if (!confirm('Are you sure you want to clear all logs?')) {
-        return;
-    }
+    if (!confirm('Are you sure you want to clear all logs?')) return;
     
     try {
         const response = await fetch('/api/clear-logs', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: {'Content-Type': 'application/json'}
         });
         
         const data = await response.json();
-        
         if (data.success) {
-            updateLogs();
+            loadLogs();
+            alert('Logs cleared');
+        } else {
+            alert('Error: ' + data.error);
         }
     } catch (error) {
-        console.error('Error clearing logs:', error);
+        alert('Error: ' + error.message);
     }
 }
-
-setInterval(updateStats, 2000);
-setInterval(updateAccountsList, 3000);
-setInterval(updateLogs, 1000);
-
-window.addEventListener('load', () => {
-    updateStats();
-    updateAccountsList();
-    updateLogs();
-});

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Account Telegram Broadcaster</title>
+    <title>Telegram Multi-Account Broadcaster</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
@@ -11,219 +11,204 @@
     <div class="container-fluid">
         <nav class="navbar navbar-dark bg-dark mb-4">
             <div class="container-fluid">
-                <span class="navbar-brand mb-0 h1">
-                    <i class="bi bi-broadcast"></i> Multi-Account Telegram Broadcaster
-                </span>
+                <span class="navbar-brand mb-0 h1">📱 Telegram Broadcaster</span>
+                <span class="navbar-text text-light" id="status-badge">Status: Ready</span>
             </div>
         </nav>
 
         <div class="container">
+            <!-- Dashboard Stats -->
             <div class="row mb-4">
-                <div class="col-md-3 mb-3">
-                    <div class="card bg-primary text-white">
+                <div class="col-md-3">
+                    <div class="card text-white bg-primary">
                         <div class="card-body">
-                            <h6 class="card-title">Total Accounts</h6>
-                            <h2 id="totalAccounts">0</h2>
+                            <h5 class="card-title">Total Accounts</h5>
+                            <h2 id="total-accounts">0</h2>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card bg-success text-white">
+                <div class="col-md-3">
+                    <div class="card text-white bg-info">
                         <div class="card-body">
-                            <h6 class="card-title">Total Groups</h6>
-                            <h2 id="totalGroups">0</h2>
+                            <h5 class="card-title">Total Groups</h5>
+                            <h2 id="total-groups">0</h2>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card bg-info text-white">
+                <div class="col-md-3">
+                    <div class="card text-white bg-success">
                         <div class="card-body">
-                            <h6 class="card-title">Selected Groups</h6>
-                            <h2 id="selectedGroups">0</h2>
+                            <h5 class="card-title">Messages Sent</h5>
+                            <h2 id="messages-sent">0</h2>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card bg-warning text-dark">
+                <div class="col-md-3">
+                    <div class="card text-white bg-danger">
                         <div class="card-body">
-                            <h6 class="card-title">Messages Sent</h6>
-                            <h2 id="messagesSent">0</h2>
+                            <h5 class="card-title">Failed</h5>
+                            <h2 id="failed-count">0</h2>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="row mb-4">
-                <div class="col-md-3 mb-3">
-                    <div class="card bg-danger text-white">
-                        <div class="card-body">
-                            <h6 class="card-title">Failed Count</h6>
-                            <h2 id="failedCount">0</h2>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card">
-                        <div class="card-body">
-                            <h6 class="card-title">Status</h6>
-                            <p><span class="badge" id="statusBadge" style="background-color: #dc3545;">Idle</span></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <ul class="nav nav-tabs mb-3" role="tablist">
+            <!-- Tab Navigation -->
+            <ul class="nav nav-tabs mb-4" id="mainTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="accounts-tab" data-bs-toggle="tab" data-bs-target="#accounts" type="button" role="tab">Accounts</button>
+                    <button class="nav-link active" id="api-tab" data-bs-toggle="tab" data-bs-target="#api" type="button">API Setup</button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="groups-tab" data-bs-toggle="tab" data-bs-target="#groups" type="button" role="tab">Groups</button>
+                    <button class="nav-link" id="accounts-tab" data-bs-toggle="tab" data-bs-target="#accounts" type="button">Accounts</button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="broadcast-tab" data-bs-toggle="tab" data-bs-target="#broadcast" type="button" role="tab">Broadcast</button>
+                    <button class="nav-link" id="groups-tab" data-bs-toggle="tab" data-bs-target="#groups" type="button">Groups</button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logs" type="button" role="tab">Logs</button>
+                    <button class="nav-link" id="broadcast-tab" data-bs-toggle="tab" data-bs-target="#broadcast" type="button">Broadcast</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logs" type="button">Logs</button>
                 </li>
             </ul>
 
-            <div class="tab-content">
-                <div class="tab-pane fade show active" id="accounts" role="tabpanel">
+            <!-- Tab Content -->
+            <div class="tab-content" id="mainTabContent">
+                <!-- API Setup Tab -->
+                <div class="tab-pane fade show active" id="api" role="tabpanel">
                     <div class="card">
-                        <div class="card-header">
-                            <h5>Account Management</h5>
+                        <div class="card-header bg-dark text-white">
+                            <h5>API Credentials Setup</h5>
                         </div>
                         <div class="card-body">
-                            <div class="mb-3">
-                                <label for="phoneInput" class="form-label">Phone Number</label>
-                                <input type="text" class="form-control" id="phoneInput" placeholder="+1234567890">
+                            <div class="alert alert-info">
+                                <strong>Instructions:</strong> Get your API ID and API HASH from <a href="https://my.telegram.org/apps" target="_blank">https://my.telegram.org/apps</a>
                             </div>
-                            <button class="btn btn-primary" onclick="addAccount()">Add Account</button>
-                        </div>
-                    </div>
-
-                    <div class="card mt-3">
-                        <div class="card-header">
-                            <h5>Connected Accounts</h5>
-                        </div>
-                        <div class="card-body">
-                            <div id="accountsList" class="list-group">
-                                <p class="text-muted">No accounts connected</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="otpModal" class="modal" tabindex="-1" style="display: none;">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Enter OTP</h5>
-                                    <button type="button" class="btn-close" onclick="closeOtpModal()"></button>
+                            <form id="apiForm">
+                                <div class="mb-3">
+                                    <label for="apiId" class="form-label">API ID</label>
+                                    <input type="number" class="form-control" id="apiId" placeholder="e.g., 1234567" required>
                                 </div>
-                                <div class="modal-body">
-                                    <p id="otpPhone"></p>
-                                    <input type="text" class="form-control" id="otpInput" placeholder="Enter OTP">
+                                <div class="mb-3">
+                                    <label for="apiHash" class="form-label">API HASH</label>
+                                    <input type="text" class="form-control" id="apiHash" placeholder="e.g., abcdef1234567890" required>
                                 </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" onclick="closeOtpModal()">Cancel</button>
-                                    <button type="button" class="btn btn-primary" onclick="submitOtp()">Verify</button>
-                                </div>
-                            </div>
+                                <button type="submit" class="btn btn-primary">Upload API Credentials</button>
+                                <span id="apiStatus" class="ms-3"></span>
+                            </form>
                         </div>
                     </div>
                 </div>
 
+                <!-- Accounts Tab -->
+                <div class="tab-pane fade" id="accounts" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header bg-dark text-white">
+                            <h5>Manage Telegram Accounts</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="addAccountForm" class="mb-4">
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control" id="phoneNumber" placeholder="+1234567890" required>
+                                    <button class="btn btn-primary" type="submit">Add Account</button>
+                                </div>
+                            </form>
+
+                            <div id="otpModal" style="display: none;" class="mb-4 p-3 border rounded bg-light">
+                                <h6>Verify OTP</h6>
+                                <div class="input-group mb-3">
+                                    <input type="text" class="form-control" id="otpCode" placeholder="Enter OTP code">
+                                    <button class="btn btn-success" id="verifyOtpBtn">Verify</button>
+                                </div>
+                            </div>
+
+                            <div id="accountsList" class="row"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Groups Tab -->
                 <div class="tab-pane fade" id="groups" role="tabpanel">
                     <div class="card">
-                        <div class="card-header">
-                            <h5>Group Management</h5>
+                        <div class="card-header bg-dark text-white">
+                            <h5>Manage Groups</h5>
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
-                                <label for="accountSelect" class="form-label">Select Account</label>
-                                <select class="form-control" id="accountSelect" onchange="loadGroups()">
-                                    <option value="">Choose an account...</option>
+                                <select id="accountSelect" class="form-select">
+                                    <option value="">Select Account</option>
                                 </select>
                             </div>
-                            <button class="btn btn-success" onclick="loadGroups()">Refresh Groups</button>
-                            <button class="btn btn-info" onclick="selectAllGroups()">Select All</button>
-                        </div>
-                    </div>
-
-                    <div class="card mt-3">
-                        <div class="card-header">
-                            <h5>Groups List</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <input type="text" class="form-control" id="groupSearch" placeholder="Search groups..." onkeyup="filterGroups()">
+                            <button class="btn btn-info" id="refreshGroupsBtn">Refresh Groups</button>
+                            <button class="btn btn-secondary" id="selectAllBtn">Select All</button>
+                            <button class="btn btn-warning" id="saveGroupsBtn">Save Selected Groups</button>
+                            
+                            <div class="mt-3">
+                                <input type="text" id="searchGroups" class="form-control mb-3" placeholder="Search groups...">
+                                <div id="groupsList"></div>
                             </div>
-                            <div id="groupsList" class="list-group">
-                                <p class="text-muted">Select an account to load groups</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card mt-3">
-                        <div class="card-body">
-                            <button class="btn btn-primary" onclick="saveSelectedGroups()">Save Selected Groups</button>
                         </div>
                     </div>
                 </div>
 
+                <!-- Broadcast Tab -->
                 <div class="tab-pane fade" id="broadcast" role="tabpanel">
                     <div class="card">
-                        <div class="card-header">
-                            <h5>Broadcast Settings</h5>
+                        <div class="card-header bg-dark text-white">
+                            <h5>Broadcast Message</h5>
                         </div>
                         <div class="card-body">
-                            <div class="mb-3">
-                                <label for="messageBox" class="form-label">Message</label>
-                                <textarea class="form-control" id="messageBox" rows="5" placeholder="Enter your message here..."></textarea>
-                            </div>
+                            <form id="broadcastForm">
+                                <div class="mb-3">
+                                    <label for="message" class="form-label">Message</label>
+                                    <textarea class="form-control" id="message" rows="5" placeholder="Enter your message here..." required></textarea>
+                                </div>
 
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="delayInput" class="form-label">Delay Between Messages (seconds)</label>
-                                    <input type="number" class="form-control" id="delayInput" value="0" min="0">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="delay" class="form-label">Delay (seconds)</label>
+                                        <input type="number" class="form-control" id="delay" value="0" min="0">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="repeatInterval" class="form-label">Repeat Interval (seconds)</label>
+                                        <input type="number" class="form-control" id="repeatInterval" value="300" min="0">
+                                    </div>
                                 </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="repeatInterval" class="form-label">Repeat Interval (seconds)</label>
-                                    <input type="number" class="form-control" id="repeatInterval" value="300" min="0">
-                                </div>
-                            </div>
 
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="randomDelayCheck">
-                                    <label class="form-check-label" for="randomDelayCheck">
-                                        Random Delay
-                                    </label>
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="randomDelay">
+                                        <label class="form-check-label" for="randomDelay">
+                                            Random Delay (±50%)
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="autoRepeat">
+                                        <label class="form-check-label" for="autoRepeat">
+                                            Auto Repeat
+                                        </label>
+                                    </div>
                                 </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="autoRepeatCheck">
-                                    <label class="form-check-label" for="autoRepeatCheck">
-                                        Auto Repeat
-                                    </label>
-                                </div>
-                            </div>
 
-                            <button class="btn btn-success btn-lg" onclick="startBroadcast()">Start Broadcast</button>
-                            <button class="btn btn-danger btn-lg" onclick="stopBroadcast()">Stop Broadcast</button>
+                                <button type="button" class="btn btn-success btn-lg" id="startBroadcastBtn">Start Broadcast</button>
+                                <button type="button" class="btn btn-danger btn-lg" id="stopBroadcastBtn" style="display: none;">Stop Broadcast</button>
+                            </form>
                         </div>
                     </div>
                 </div>
 
+                <!-- Logs Tab -->
                 <div class="tab-pane fade" id="logs" role="tabpanel">
                     <div class="card">
-                        <div class="card-header">
-                            <h5>Logs</h5>
-                            <button class="btn btn-sm btn-info" onclick="exportLogs()">Export Logs</button>
-                            <button class="btn btn-sm btn-danger" onclick="clearLogs()">Clear Logs</button>
+                        <div class="card-header bg-dark text-white">
+                            <h5>Activity Logs</h5>
                         </div>
                         <div class="card-body">
-                            <div id="logsList" style="height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background-color: #f8f9fa;">
-                                <p class="text-muted">No logs yet</p>
+                            <button class="btn btn-info" id="exportLogsBtn">Export Logs</button>
+                            <button class="btn btn-danger" id="clearLogsBtn">Clear Logs</button>
+                            
+                            <div id="logsList" class="mt-3" style="max-height: 500px; overflow-y: auto;">
+                                <p class="text-muted">Loading logs...</p>
                             </div>
                         </div>
                     </div>
