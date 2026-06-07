@@ -108,11 +108,52 @@ class Database:
             )
         ''')
         
+        self.execute('''
+            CREATE TABLE IF NOT EXISTS api_credentials (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                api_id TEXT NOT NULL,
+                api_hash TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
         stats_exists = self.fetch_one('SELECT id FROM stats LIMIT 1')
         if not stats_exists:
             self.execute('INSERT INTO stats (messages_sent, failed_count) VALUES (0, 0)')
         
         self.disconnect()
+    
+    def save_api_credentials(self, api_id, api_hash):
+        self.connect()
+        try:
+            existing = self.fetch_one('SELECT id FROM api_credentials LIMIT 1')
+            if existing:
+                self.execute(
+                    'UPDATE api_credentials SET api_id = ?, api_hash = ?, updated_at = CURRENT_TIMESTAMP',
+                    (str(api_id), str(api_hash))
+                )
+            else:
+                self.execute(
+                    'INSERT INTO api_credentials (api_id, api_hash) VALUES (?, ?)',
+                    (str(api_id), str(api_hash))
+                )
+            return True
+        except Exception as e:
+            print(f"Error saving API credentials: {str(e)}")
+            return False
+        finally:
+            self.disconnect()
+    
+    def get_api_credentials(self):
+        self.connect()
+        try:
+            result = self.fetch_one('SELECT api_id, api_hash FROM api_credentials LIMIT 1')
+            self.disconnect()
+            return result
+        except Exception as e:
+            print(f"Error getting API credentials: {str(e)}")
+            return None
     
     def add_account(self, account_data):
         self.connect()

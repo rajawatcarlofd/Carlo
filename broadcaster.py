@@ -5,11 +5,7 @@ import os
 import random
 import time
 from pathlib import Path
-
-API_ID = 12345  # Replace with your Telegram API ID
-API_HASH = 'your_api_hash_here'  # Replace with your Telegram API Hash
-
-SESSION_DIR = 'sessions'
+from config import API_CONFIG, SESSION_DIR
 
 class TelegramBroadcaster:
     def __init__(self, db):
@@ -18,14 +14,24 @@ class TelegramBroadcaster:
         self.phone_numbers = {}
         self.stop_broadcast = False
         self.otp_cache = {}
+        self.api_id = API_CONFIG.get('API_ID', 0)
+        self.api_hash = API_CONFIG.get('API_HASH', '')
         
         if not os.path.exists(SESSION_DIR):
             os.makedirs(SESSION_DIR)
     
+    def update_credentials(self, api_id, api_hash):
+        """Update API credentials at runtime"""
+        self.api_id = int(api_id)
+        self.api_hash = str(api_hash)
+    
     async def start_auth(self, phone):
         try:
+            if not self.api_id or not self.api_hash:
+                return {'success': False, 'error': 'API credentials not configured. Please upload API credentials first.'}
+            
             session_file = os.path.join(SESSION_DIR, f'{phone}.session')
-            client = TelegramClient(session_file, API_ID, API_HASH)
+            client = TelegramClient(session_file, self.api_id, self.api_hash)
             
             await client.connect()
             
@@ -67,10 +73,9 @@ class TelegramBroadcaster:
     async def load_groups(self, phone):
         try:
             if phone not in self.clients:
-                # Try to load existing session
                 session_file = os.path.join(SESSION_DIR, f'{phone}.session')
                 if os.path.exists(f'{session_file}.session'):
-                    client = TelegramClient(session_file, API_ID, API_HASH)
+                    client = TelegramClient(session_file, self.api_id, self.api_hash)
                     await client.connect()
                     if await client.is_user_authorized():
                         self.clients[phone] = client
@@ -156,7 +161,7 @@ class TelegramBroadcaster:
             
             session_file = os.path.join(SESSION_DIR, f'{phone}.session')
             if os.path.exists(f'{session_file}.session'):
-                client = TelegramClient(session_file, API_ID, API_HASH)
+                client = TelegramClient(session_file, self.api_id, self.api_hash)
                 await client.connect()
                 if await client.is_user_authorized():
                     self.clients[phone] = client
@@ -176,7 +181,7 @@ class TelegramBroadcaster:
                     except:
                         pass
                 
-                client = TelegramClient(session_file, API_ID, API_HASH)
+                client = TelegramClient(session_file, self.api_id, self.api_hash)
                 await client.connect()
                 if await client.is_user_authorized():
                     self.clients[phone] = client
